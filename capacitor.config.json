@@ -1,0 +1,10 @@
+{
+  "appId": "com.motogauge.app",
+  "appName": "MotoGauge",
+  "webDir": "web",
+  "bundledWebRuntime": false,
+  "android": {
+    "backgroundColor": "#0a0c10",
+    "allowMixedContent": true
+  }
+}

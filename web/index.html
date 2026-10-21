@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>MotoGauge - Motorcycle OBD2 Dashboard & Diagnostics</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700;800&family=JetBrains+Mono:wght@500;700&family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="dark-oled">
+  <div id="app" class="mobile-container">
+    <!-- Top Status Bar -->
+    <header class="top-nav">
+      <div class="brand-row">
+        <div class="logo">
+          <span class="logo-icon">
+            <svg class="icon-svg" viewBox="0 0 24 24" width="16" height="16">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" fill="currentColor"></polygon>
+            </svg>
+          </span>
+          <span class="logo-text">MOTO<span class="accent-text">GAUGE</span></span>
+          <span class="badge protocol-badge" id="protocolBadge">HONDA KWP</span>
+        </div>
+        <button id="btnOpenConnect" class="btn-connect-pill" aria-label="เชื่อมต่อบลูทูธ">
+          <span class="ble-dot disconnected" id="bleStatusDot"></span>
+          <span id="bleStatusText">OBD2: ไม่ได้เชื่อมต่อ</span>
+        </button>
+      </div>
+
+      <!-- Quick Alert Banner (Hidden by default) -->
+      <div id="alertBanner" class="alert-banner hidden">
+        <span class="alert-icon">
+          <svg class="icon-svg" viewBox="0 0 24 24" width="16" height="16">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+            <line x1="12" y1="9" x2="12" y2="13"></line>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+        </span>
+        <span id="alertMessage" class="alert-text">ความร้อนหม้อน้ำสูงเกิน 105°C!</span>
+      </div>
+    </header>
+
+    <!-- Main Screens Viewport -->
+    <main class="content-viewport">
+      
+      <!-- SCREEN S02: RACING DASHBOARD -->
+      <section id="screen-dashboard" class="screen-view active">
+        <!-- Tachometer & Speed Main Hero -->
+        <div class="tacho-hero-card">
+          <div class="shift-light-bar" id="shiftLightBar">
+            <div class="shift-seg seg-1"></div>
+            <div class="shift-seg seg-2"></div>
+            <div class="shift-seg seg-3"></div>
+            <div class="shift-seg seg-4"></div>
+            <div class="shift-seg seg-red"></div>
+          </div>
+
+          <div class="gauge-canvas-wrap">
+            <canvas id="rpmGaugeCanvas" width="340" height="230"></canvas>
+            <div class="gauge-center-readout">
+              <div class="rpm-digital-box">
+                <span id="rpmValueText" class="val-num">0</span>
+                <span class="val-unit">RPM</span>
+              </div>
+              <div class="speed-digital-box">
+                <span id="speedValueText" class="speed-num">0</span>
+                <span class="speed-unit">KM/H</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Throttle TPS Horizontal Bar -->
+          <div class="tps-container">
+            <div class="tps-header">
+              <span class="label">TPS องศาคันเร่ง</span>
+              <span id="tpsValueText" class="val-mono">0%</span>
+            </div>
+            <div class="tps-track">
+              <div id="tpsFillBar" class="tps-fill" style="width: 0%;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Metric Tiles Grid -->
+        <div class="metric-grid">
+          <div class="metric-tile" id="tileCoolant">
+            <div class="tile-header">
+              <span class="tile-icon">
+                <svg class="icon-svg" viewBox="0 0 24 24" width="16" height="16">
+                  <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"></path>
+                </svg>
+              </span>
+              <span class="tile-title">ความร้อนเครื่อง</span>
+            </div>
+            <div class="tile-body">
+              <span id="coolantValueText" class="tile-val">--</span>
+              <span class="tile-unit">°C</span>
+            </div>
+            <div class="tile-footer">
+              <span class="status-tag" id="coolantStatus">รอสัญญาณ OBD2</span>
+            </div>
+          </div>
+
+          <div class="metric-tile" id="tileBattery">
+            <div class="tile-header">
+              <span class="tile-icon">
+                <svg class="icon-svg" viewBox="0 0 24 24" width="16" height="16">
+                  <rect x="2" y="7" width="16" height="10" rx="2" ry="2"></rect>
+                  <line x1="22" y1="11" x2="22" y2="13"></line>
+                  <line x1="6" y1="11" x2="6" y2="13"></line>
+                  <line x1="10" y1="11" x2="10" y2="13"></line>
+                </svg>
+              </span>
+              <span class="tile-title">แรงดันไฟแบต</span>
+            </div>
+            <div class="tile-body">
+              <span id="batteryValueText" class="tile-val">--</span>
+              <span class="tile-unit">V</span>
+            </div>
+            <div class="tile-footer">
+              <span class="status-tag" id="batteryStatus">รอสัญญาณ OBD2</span>
+            </div>
+          </div>
+
+          <div class="metric-tile" id="tileIntake">
+            <div class="tile-header">
+              <span class="tile-icon">
+                <svg class="icon-svg" viewBox="0 0 24 24" width="16" height="16">
+                  <path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"></path>
+                </svg>
+              </span>
+              <span class="tile-title">อุณหภูมิไอดี IAT</span>
+            </div>
+            <div class="tile-body">
+              <span id="iatValueText" class="tile-val">--</span>
+              <span class="tile-unit">°C</span>
+            </div>
+            <div class="tile-footer">
+              <span class="status-tag">อุณหภูมิอากาศเข้า</span>
+            </div>
+          </div>
+
+          <div class="metric-tile" id="tileMil">
+            <div class="tile-header">
+              <span class="tile-icon">
+                <svg class="icon-svg" viewBox="0 0 24 24" width="16" height="16">
+                  <rect x="4" y="6" width="14" height="12" rx="2"></rect>
+                  <circle cx="11" cy="12" r="3"></circle>
+                  <line x1="2" y1="10" x2="4" y2="10"></line>
+                  <line x1="2" y1="14" x2="4" y2="14"></line>
+                  <line x1="18" y1="8" x2="21" y2="8"></line>
+                  <line x1="21" y1="8" x2="21" y2="16"></line>
+                  <line x1="18" y1="16" x2="21" y2="16"></line>
+                </svg>
+              </span>
+              <span class="tile-title">ไฟเตือนเครื่อง MIL</span>
+            </div>
+            <div class="tile-body">
+              <span id="milCountText" class="tile-val">ปกติ</span>
+            </div>
+            <div class="tile-footer">
+              <button id="btnGoToDiag" class="btn-link">ตรวจเช็กโค้ด ➔</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Trip Peaks Bar (Real Live Aggregator) -->
+        <div class="trip-peaks-card">
+          <div class="peaks-header">
+            <span class="peaks-title">
+              <svg class="icon-svg" viewBox="0 0 24 24" width="14" height="14" style="margin-right: 4px;">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+              </svg>
+              สถิติสูงสุดของทริปนี้ (Trip Peaks)
+            </span>
+            <button id="btnResetTrip" class="btn-xs btn-ghost" title="รีเซ็ตสถิติ">รีเซ็ต</button>
+          </div>
+          <div class="peaks-grid">
+            <div class="peak-item">
+              <span class="peak-lbl">รอบสูงสุด</span>
+              <span class="peak-val"><span id="peakRpmText">0</span> <small>RPM</small></span>
+            </div>
+            <div class="peak-item">
+              <span class="peak-lbl">ความเร็วสูงสุด</span>
+              <span class="peak-val"><span id="peakSpeedText">0</span> <small>KM/H</small></span>
+            </div>
+            <div class="peak-item">
+              <span class="peak-lbl">ความร้อนสูงสุด</span>
+              <span class="peak-val"><span id="peakTempText">--</span> <small>°C</small></span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN S03: DIAGNOSTICS & DTC SCANNER -->
+      <section id="screen-diagnostics" class="screen-view">
+        <div class="screen-header-row">
+          <div>
+            <h2 class="screen-title">ระบบสแกนโค้ด ECU</h2>
+            <p class="screen-sub">อ่านความผิดปกติและลบไฟเตือนเครื่องยนต์</p>
+          </div>
+          <button id="btnScanDTC" class="btn-primary">
+            <svg class="btn-svg" viewBox="0 0 24 24">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            สแกนโค้ด ECU
+          </button>
+        </div>
+
+        <!-- Status Summary Banner -->
+        <div class="diag-status-card cleared" id="diagStatusBanner">
+          <div class="diag-status-icon" id="diagIcon">
+            <svg class="icon-svg" viewBox="0 0 24 24" width="28" height="28" style="color: var(--color-success);">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+              <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
+          </div>
+          <div class="diag-status-content">
+            <h3 id="diagTitle">ระบบเครื่องยนต์ทำงานปกติ</h3>
+            <p id="diagSub">ไม่มีไฟเตือนเครื่องยนต์ (MIL Normal)</p>
+          </div>
+          <button id="btnClearDTC" class="btn-danger" style="display: none;">
+            <svg class="btn-svg" viewBox="0 0 24 24">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+            ลบไฟโค้ด
+          </button>
+        </div>
+
+        <!-- DTC Codes List -->
+        <div class="dtc-list-container" id="dtcList">
+          <div class="card info-card" style="text-align: center; padding: 28px 16px;">
+            <div style="margin-bottom: 8px;">
+              <svg class="icon-svg" viewBox="0 0 24 24" width="36" height="36" style="color: var(--color-success);">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+              </svg>
+            </div>
+            <h4 style="color: var(--color-success); font-size: 1.05rem; margin-bottom: 4px;">ระบบปกติ ไม่พบโค้ดความผิดปกติ</h4>
+            <p style="color: var(--color-text-muted); font-size: 0.8rem;">กดปุ่ม "สแกนโค้ด ECU" เพื่ออ่านค่าสดจากกล่อง ECU ของรถ</p>
+          </div>
+        </div>
+
+        <!-- Safety Notice -->
+        <div class="notice-box">
+          <span class="notice-icon">
+            <svg class="icon-svg" viewBox="0 0 24 24" width="18" height="18" style="color: var(--color-accent);">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            </svg>
+          </span>
+          <p><strong>ระบบความปลอดภัย (Safety Guard):</strong> จะไม่อนุญาตให้กดลบโค้ดขณะเครื่องยนต์กำลังทำงาน เพื่อป้องกัน ECU รวน</p>
+        </div>
+      </section>
+
+      <!-- SCREEN S04: TUNING CALCULATOR -->
+      <section id="screen-calculator" class="screen-view">
+        <div class="screen-header-row">
+          <div>
+            <h2 class="screen-title">เครื่องคิดเลขสายโม</h2>
+            <p class="screen-sub">คำนวณซีซีเครื่องยนต์และอัตราทดสเตอร์</p>
+          </div>
+        </div>
+
+        <!-- Calculator Tabs -->
+        <div class="calc-tab-bar">
+          <button class="calc-tab active" data-calc="cc">คำนวณซีซี (CC)</button>
+          <button class="calc-tab" data-calc="sprocket">อัตราทดสเตอร์</button>
+        </div>
+
+        <!-- Tool 1: CC Calculator -->
+        <div id="calc-tool-cc" class="calc-panel active">
+          <!-- Bike Presets -->
+          <div class="preset-row">
+            <span class="preset-label">สูตรรถเดิม:</span>
+            <button class="btn-preset active" data-bore="47.0" data-stroke="63.1">Scoopy-i</button>
+            <button class="btn-preset" data-bore="50.0" data-stroke="55.6">Wave 110i</button>
+            <button class="btn-preset" data-bore="52.4" data-stroke="57.9">Wave 125i</button>
+            <button class="btn-preset" data-bore="60.0" data-stroke="55.5">PCX 160</button>
+            <button class="btn-preset" data-bore="70.0" data-stroke="75.9">XMAX 300</button>
+          </div>
+
+          <!-- Result Card -->
+          <div class="calc-result-hero">
+            <span class="res-sub">ความจุกระบอกสูบที่คำนวณได้</span>
+            <div class="res-main">
+              <span id="resCcValue" class="res-num">109.5</span>
+              <span class="res-unit">cc</span>
+            </div>
+            <div class="res-detail" id="resCcDetail">
+              ลูกสูบ 47.0 มม. | ชัก 63.1 มม. (สแตนดาร์ด Scoopy-i)
+            </div>
+          </div>
+
+          <!-- Inputs -->
+          <div class="input-card">
+            <div class="form-group">
+              <div class="label-row">
+                <label>ขนาดลูกสูบ (Bore)</label>
+                <span class="val-badge"><span id="lblBore">47.0</span> มม.</span>
+              </div>
+              <input type="range" id="inputBore" min="45.0" max="85.0" step="0.1" value="47.0" class="range-slider">
+            </div>
+
+            <div class="form-group">
+              <div class="label-row">
+                <label>ระยะชัก (Stroke)</label>
+                <span class="val-badge"><span id="lblStroke">63.1</span> มม.</span>
+              </div>
+              <input type="range" id="inputStroke" min="45.0" max="85.0" step="0.1" value="63.1" class="range-slider">
+            </div>
+
+            <div class="form-group">
+              <div class="label-row">
+                <label>ยืดชักเพิ่ม (+/- มม. ข้อเหวี่ยง)</label>
+                <span class="val-badge">+<span id="lblStrokePlus">0.0</span> มม.</span>
+              </div>
+              <input type="range" id="inputStrokePlus" min="0" max="15.0" step="0.5" value="0" class="range-slider">
+            </div>
+          </div>
+        </div>
+
+        <!-- Tool 2: Sprocket Calculator -->
+        <div id="calc-tool-sprocket" class="calc-panel">
+          <div class="calc-result-hero">
+            <span class="res-sub">อัตราทดเกียร์สุดท้าย (Final Ratio)</span>
+            <div class="res-main">
+              <span id="resSprocketRatio" class="res-num">2.571</span>
+              <span class="res-unit">: 1</span>
+            </div>
+            <div class="res-detail" id="resSprocketDetail">
+              สเตอร์หน้า 14 ฟัน / สเตอร์หลัง 36 ฟัน ➔ เน้นปลายไหล อัตราเร่งปานกลาง
+            </div>
+          </div>
+
+          <div class="input-card">
+            <div class="form-group">
+              <label>สเตอร์หน้า (ฟัน):</label>
+              <div class="teeth-selector" id="frontTeethGroup">
+                <button class="btn-tooth" data-teeth="13">13</button>
+                <button class="btn-tooth active" data-teeth="14">14</button>
+                <button class="btn-tooth" data-teeth="15">15</button>
+                <button class="btn-tooth" data-teeth="16">16</button>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>สเตอร์หลัง (ฟัน):</label>
+              <div class="teeth-selector" id="rearTeethGroup">
+                <button class="btn-tooth" data-teeth="32">32</button>
+                <button class="btn-tooth" data-teeth="34">34</button>
+                <button class="btn-tooth active" data-teeth="36">36</button>
+                <button class="btn-tooth" data-teeth="38">38</button>
+                <button class="btn-tooth" data-teeth="40">40</button>
+                <button class="btn-tooth" data-teeth="42">42</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN S06: IN-APP DETAILED USER & WIRING GUIDE -->
+      <section id="screen-guide" class="screen-view">
+        <div class="screen-header-row">
+          <div>
+            <h2 class="screen-title">คู่มือใช้งาน & การต่อสาย</h2>
+            <p class="screen-sub">ผังสายไฟ ปลั๊กรถแต่ละรุ่น และขั้นตอนเชื่อมต่อแบบละเอียด</p>
+          </div>
+        </div>
+
+        <!-- Guide Category Tabs -->
+        <div class="guide-tabs">
+          <button class="guide-tab-btn active" data-tab="honda4">Honda 4-Pin (KWP)</button>
+          <button class="guide-tab-btn" data-tab="honda6">Honda 6-Pin (CAN Euro5)</button>
+          <button class="guide-tab-btn" data-tab="yamaha">Yamaha (K-Line/CAN)</button>
+          <button class="guide-tab-btn" data-tab="appsteps">ขั้นตอนใช้งานแอป</button>
+          <button class="guide-tab-btn" data-tab="trouble">การแก้ปัญหา</button>
+        </div>
+
+        <!-- TAB 1: HONDA 4-PIN -->
+        <div id="guide-panel-honda4" class="guide-panel active">
+          <div class="guide-card">
+            <div class="guide-card-header">
+              <span class="guide-card-title">Honda ปลั๊ก 4 ขา สีแดง (KWP2000 Protocol)</span>
+            </div>
+            
+            <div class="badge-model-group">
+              <span class="badge-model">Scoopy-i (ก่อนปี 2021)</span>
+              <span class="badge-model">Wave 110i</span>
+              <span class="badge-model">Wave 125i (ก่อน 2023)</span>
+              <span class="badge-model">Click 125i / 150i</span>
+              <span class="badge-model">PCX 150</span>
+              <span class="badge-model">MSX 125</span>
+              <span class="badge-model">Zoomer-X</span>
+              <span class="badge-model">Dream Super Cub</span>
+            </div>
+
+            <h4 style="font-size: 0.84rem; color: #fff; margin: 10px 0 4px;">ตำแหน่งปลั๊กตรวจเช็ก (DLC Port):</h4>
+            <ul style="font-size: 0.75rem; color: var(--color-text-muted); margin-left: 18px; line-height: 1.6;">
+              <li><strong>Scoopy-i / Zoomer-X:</strong> เปิดฝาครอบแบตเตอรี่ใต้แผ่นยางวางเท้า หรือใต้เบาะใกล้ขั้วแบต จะพบปลั๊กสีแดง 4 ขา มีฝาครอบกันน้ำปิดอยู่</li>
+              <li><strong>Wave 110i / 125i:</strong> อยู่ใต้เบาะนั่ง ข้างกล่อง U-Box ด้านขวาข้างแบตเตอรี่</li>
+              <li><strong>Click 125i/150i:</strong> อยู่บริเวณฝาปิดแบตเตอรี่ที่แผ่นยางพักเท้าด้านขวา</li>
+            </ul>
+
+            <h4 style="font-size: 0.84rem; color: #fff; margin: 12px 0 4px;">ผังการต่อสาย (Wiring Pinout):</h4>
+            <div class="diag-ascii-box">
+[ ปลั๊กแดง 4-Pin รถ Honda ]          [ หัวอ่าน OBD2 16-Pin ]
+   Pin 1 (ส้ม/ขาว - K-Line)    ───>     Pin 7 (K-Line ISO)
+   Pin 2 (เขียว/ดำ - Ground)   ───>     Pin 4/5 (Chassis/Sig GND)
+   Pin 3 (น้ำตาล - SCS Line)   ───>     (ไม่ต้องต่อ)
+   Pin 4 (ดำ/ขาว - +12V Key)   ───>     Pin 16 (+12V Battery)
+            </div>
+
+            <table class="pinout-table">
+              <thead>
+                <tr>
+                  <th>ขา DLC รถ</th>
+                  <th>สีสายไฟแท้</th>
+                  <th>สัญญาณ</th>
+                  <th>ต่อเข้า OBD2</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Pin 1</td>
+                  <td>ส้ม / ขาว</td>
+                  <td><span class="wire-tag wire-kline">K-Line</span></td>
+                  <td>Pin 7 (ISO K-Line)</td>
+                </tr>
+                <tr>
+                  <td>Pin 2</td>
+                  <td>เขียว / ดำ</td>
+                  <td><span class="wire-tag wire-gnd">Ground</span></td>
+                  <td>Pin 4 หรือ 5</td>
+                </tr>
+                <tr>
+                  <td>Pin 3</td>
+                  <td>น้ำตาล</td>
+                  <td><span class="wire-tag">SCS Line</span></td>
+                  <td>ไม่ใช้งาน (สำหรับช็อตเช็กไฟกะพริบ)</td>
+                </tr>
+                <tr>
+                  <td>Pin 4</td>
+                  <td>ดำ / ขาว</td>
+                  <td><span class="wire-tag wire-v12">+12V Key</span></td>
+                  <td>Pin 16 (ไฟเลี้ยง)</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <h4 style="font-size: 0.84rem; color: #fff; margin: 12px 0 6px;">ขั้นตอนการเชื่อมต่อ:</h4>
+            <div class="step-list">
+              <div class="step-item">
+                <div class="step-num">1</div>
+                <div class="step-content">
+                  <h4>ปิดกุญแจรถ (Key OFF)</h4>
+                  <p>ตรวจเช็กให้แน่ใจว่าสวิตช์กุญแจอยู่ในตำแหน่งปิด เพื่อความปลอดภัยของระบบไฟ</p>
+                </div>
+              </div>
+              <div class="step-item">
+                <div class="step-num">2</div>
+                <div class="step-content">
+                  <h4>เสียบสายแปลง Honda 4-Pin</h4>
+                  <p>ถอดฝาครอบกันน้ำสีแดงของรถออก แล้วเสียบสายแปลง 4-Pin เข้ากับหัวอ่าน ELM327 ให้แน่น</p>
+                </div>
+              </div>
+              <div class="step-item">
+                <div class="step-num">3</div>
+                <div class="step-content">
+                  <h4>บิดกุญแจไปที่ ON</h4>
+                  <p>บิดกุญแจ ON (ยังไม่ต้องสตาร์ตเครื่อง) ไฟ Power บนตัวอ่าน ELM327 จะสว่างขึ้น</p>
+                </div>
+              </div>
+              <div class="step-item">
+                <div class="step-num">4</div>
+                <div class="step-content">
+                  <h4>เลือกโปรไฟล์ในแอป</h4>
+                  <p>ไปที่เมนู "ตั้งค่า" เลือก "Honda Scoopy-i / Wave 110i/125i (KWP 4-Pin)" แล้วกดปุ่ม "เชื่อมต่อบลูทูธ"</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: HONDA 6-PIN EURO 5 -->
+        <div id="guide-panel-honda6" class="guide-panel">
+          <div class="guide-card">
+            <div class="guide-card-header">
+              <span class="guide-card-title">Honda ปลั๊ก 6 ขา สีแดง (CAN-Bus Euro 5)</span>
+            </div>
+
+            <div class="badge-model-group">
+              <span class="badge-model">Scoopy-i (โฉมใหม่ 2021-ปัจจุบัน)</span>
+              <span class="badge-model">PCX 160</span>
+              <span class="badge-model">Lead 125 (4 วาล์ว)</span>
+              <span class="badge-model">Giorno+</span>
+              <span class="badge-model">ADV 160</span>
+              <span class="badge-model">Click 160</span>
+              <span class="badge-model">Forza 350</span>
+              <span class="badge-model">CBR650R / CB650R</span>
+            </div>
+
+            <h4 style="font-size: 0.84rem; color: #fff; margin: 10px 0 4px;">ตำแหน่งปลั๊กตรวจเช็ก (DLC 6-Pin):</h4>
+            <ul style="font-size: 0.75rem; color: var(--color-text-muted); margin-left: 18px; line-height: 1.6;">
+              <li><strong>Scoopy-i โฉมใหม่ (ปี 2021 ขึ้นไป):</strong> อยู่ใต้เบาะนั่งช่วงหน้า ใกล้ชุดแบตเตอรี่ เป็นปลั๊กสีแดงทรงสี่เหลี่ยม 6 ขา</li>
+              <li><strong>PCX 160 / ADV 160:</strong> อยู่ใต้เบาะช่วงท้าย ใกล้แผงฟิวส์</li>
+              <li><strong>Giorno+ / Lead 125:</strong> อยู่ในช่องเก็บของใต้เบาะ หรือใต้ฝาปิดแบตเตอรี่</li>
+            </ul>
+
+            <h4 style="font-size: 0.84rem; color: #fff; margin: 12px 0 4px;">ผังการต่อสาย (Euro 5 CAN Pinout):</h4>
+            <div class="diag-ascii-box">
+[ ปลั๊กแดง 6-Pin Euro 5 รถ ]        [ หัวอ่าน OBD2 16-Pin ]
+   Pin 1 (+12V Battery)       ───>     Pin 16 (+12V Battery)
+   Pin 2 (Ground ตัวถัง)       ───>     Pin 4/5 (Signal/Chassis Ground)
+   Pin 3 (CAN-High 500k)      ───>     Pin 6 (CAN High)
+   Pin 4 (K-Line รอง)         ───>     Pin 7 (ISO K-Line)
+   Pin 5 (CAN-Low 500k)       ───>     Pin 14 (CAN Low)
+   Pin 6 (SCS Line)           ───>     (ไม่ต้องต่อ)
+            </div>
+
+            <table class="pinout-table">
+              <thead>
+                <tr>
+                  <th>ขา DLC รถ</th>
+                  <th>สัญญาณ</th>
+                  <th>ความเร็ว</th>
+                  <th>ต่อเข้า OBD2</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Pin 1</td>
+                  <td><span class="wire-tag wire-v12">+12V ไฟเลี้ยง</span></td>
+                  <td>DC 12V</td>
+                  <td>Pin 16</td>
+                </tr>
+                <tr>
+                  <td>Pin 2</td>
+                  <td><span class="wire-tag wire-gnd">Ground กราวด์</span></td>
+                  <td>0V</td>
+                  <td>Pin 4 หรือ 5</td>
+                </tr>
+                <tr>
+                  <td>Pin 3</td>
+                  <td><span class="wire-tag wire-canh">CAN-High</span></td>
+                  <td>500 kbps</td>
+                  <td>Pin 6</td>
+                </tr>
+                <tr>
+                  <td>Pin 4</td>
+                  <td><span class="wire-tag wire-kline">K-Line</span></td>
+                  <td>10.4 kbps</td>
+                  <td>Pin 7</td>
+                </tr>
+                <tr>
+                  <td>Pin 5</td>
+                  <td><span class="wire-tag wire-canl">CAN-Low</span></td>
+                  <td>500 kbps</td>
+                  <td>Pin 14</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <h4 style="font-size: 0.84rem; color: #fff; margin: 12px 0 6px;">จุดเด่นระบบ Euro 5 CAN:</h4>
+            <p style="font-size: 0.75rem; color: var(--color-text-muted); line-height: 1.5;">
+              ระบบ CAN-Bus ส่งข้อมูลเร็วกว่าระบบเดิมถึง 50 เท่า ทำให้เข็มไมล์และค่าคันเร่งบนหน้าปัด MotoGauge ตอบสนองไวกระชับ ไม่มีดีเลย์
+            </p>
+          </div>
+        </div>
+
+        <!-- TAB 3: YAMAHA -->
+        <div id="guide-panel-yamaha" class="guide-panel">
+          <div class="guide-card">
+            <div class="guide-card-header">
+              <span class="guide-card-title">Yamaha ปลั๊ก 3-Pin / 4-Pin / 6-Pin</span>
+            </div>
+
+            <div class="badge-model-group">
+              <span class="badge-model">XMAX 300</span>
+              <span class="badge-model">NMAX 155</span>
+              <span class="badge-model">Aerox 155</span>
+              <span class="badge-model">Grand Filano Hybrid</span>
+              <span class="badge-model">Fazzio</span>
+              <span class="badge-model">R15 / MT-15</span>
+              <span class="badge-model">WR155</span>
+            </div>
+
+            <h4 style="font-size: 0.84rem; color: #fff; margin: 10px 0 4px;">ประเภทปลั๊กของยามาฮ่า:</h4>
+            <ul style="font-size: 0.75rem; color: var(--color-text-muted); margin-left: 18px; line-height: 1.6;">
+              <li><strong>ปลั๊ก 3-Pin หรือ 4-Pin (สีขาว/ดำ):</strong> ใช้ในรถรุ่นก่อนปี 2021 เช่น NMAX โฉมแรก, Aerox 155 โฉมแรก, Grand Filano โฉมเดิม (ใช้สัญญาณ K-Line)</li>
+              <li><strong>ปลั๊ก 6-Pin Euro 5 (สีดำ):</strong> ใช้ใน XMAX 300, All New NMAX Connected, All New Aerox, Grand Filano Hybrid Connected (ใช้ระบบ CAN-Bus 500k)</li>
+            </ul>
+
+            <h4 style="font-size: 0.84rem; color: #fff; margin: 12px 0 4px;">ตำแหน่งปลั๊ก:</h4>
+            <ul style="font-size: 0.75rem; color: var(--color-text-muted); margin-left: 18px; line-height: 1.6;">
+              <li><strong>XMAX 300:</strong> อยู่หลังแผงหน้ากากด้านหน้า (ใต้แผงคอ) หรืออยู่ใต้เบาะใกล้กล่อง ECU</li>
+              <li><strong>NMAX / Aerox:</strong> อยู่ใต้เบาะนั่งช่วงท้าย ใกล้กล่องฟิวส์รวม</li>
+            </ul>
+
+            <div class="diag-ascii-box">
+[ ปลั๊กยามาฮ่า 3-Pin/4-Pin ]          [ หัวอ่าน OBD2 16-Pin ]
+   สาย K-Line (ขาว/แดง หรือ แดง/ขาว) ───>  Pin 7 (K-Line)
+   สาย Ground (ดำ หรือ น้ำเงิน)      ───>  Pin 4/5 (Ground)
+   สาย +12V (แดง หรือ น้ำตาล)         ───>  Pin 16 (+12V Battery)
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 4: APP STEPS -->
+        <div id="guide-panel-appsteps" class="guide-panel">
+          <div class="guide-card">
+            <div class="guide-card-header">
+              <span class="guide-card-title">ขั้นตอนการใช้งานแอป MotoGauge</span>
+            </div>
+
+            <div class="step-list">
+              <div class="step-item">
+                <div class="step-num">1</div>
+                <div class="step-content">
+                  <h4>จับคู่บลูทูธในมือถือ (Bluetooth Pairing)</h4>
+                  <p>เข้าหน้าการตั้งค่า Bluetooth ของโทรศัพท์มือถือ กดค้นหาและจับคู่อุปกรณ์ชื่อ <code>OBDII</code>, <code>vLinker</code> หรือ <code>ELM327</code> โดยใส่รหัสผ่าน <strong>1234</strong> หรือ <strong>0000</strong></p>
+                </div>
+              </div>
+              <div class="step-item">
+                <div class="step-num">2</div>
+                <div class="step-content">
+                  <h4>เปิดแอป MotoGauge และกดเชื่อมต่อ</h4>
+                  <p>กดปุ่มสถานะบลูทูธที่มุมขวาบน เลือกรุ่นตัวอ่านที่จับคู่ไว้แล้วกด "เชื่อมต่อ" เมื่อเชื่อมต่อสำเร็จ จุดสถานะจะเปลี่ยนเป็นสีเขียว</p>
+                </div>
+              </div>
+              <div class="step-item">
+                <div class="step-num">3</div>
+                <div class="step-content">
+                  <h4>หน้าปัดแสดงค่าสด (Live Gauge)</h4>
+                  <p>สตาร์ตเครื่องยนต์ เข็มวัดรอบ (RPM), ความเร็ว, องศาลิ้นเร่ง (TPS), ความร้อนหม้อน้ำ (ECT) และแรงดันแบตเตอรี่จะอ่านค่าตรงจากเซนเซอร์ของรถแบบเรียลไทม์</p>
+                </div>
+              </div>
+              <div class="step-item">
+                <div class="step-num">4</div>
+                <div class="step-content">
+                  <h4>การสแกนโค้ดความผิดปกติ (Mode 03 DTC Scan)</h4>
+                  <p>แตะแท็บ "สแกนโค้ด" แล้วกดปุ่ม "สแกนโค้ด ECU" หากระบบมีไฟเตือนเครื่องยนต์ขึ้น แอปจะอ่านรหัสจากกล่อง ECU พร้อมแสดงความหมายภาษาไทยและคำแนะนำในการซ่อม</p>
+                </div>
+              </div>
+              <div class="step-item">
+                <div class="step-num">5</div>
+                <div class="step-content">
+                  <h4>การลบไฟเตือนเครื่องยนต์ (Mode 04 MIL Reset)</h4>
+                  <p><strong>ข้อกำหนดความปลอดภัย:</strong> ต้องดับเครื่องยนต์ก่อนเสมอ แต่บิดกุญแจไว้ที่ตำแหน่ง ON จากนั้นกดปุ่ม "ลบไฟโค้ด" และกดยืนยัน ไฟรูปเครื่องยนต์บนหน้าปัดรถจะดับลงทันที</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 5: TROUBLESHOOTING -->
+        <div id="guide-panel-trouble" class="guide-panel">
+          <div class="guide-card">
+            <div class="guide-card-header">
+              <span class="guide-card-title">การแก้ไขปัญหาเบื้องต้น (Troubleshooting)</span>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 14px;">
+              <div>
+                <h4 style="font-size: 0.82rem; color: var(--color-danger); margin-bottom: 3px;">1. ไฟ LED บนตัวอ่าน OBD2 ไม่ติดเลย</h4>
+                <p style="font-size: 0.75rem; color: var(--color-text-muted); line-height: 1.5;">
+                  <strong>สาเหตุ:</strong> ไม่มีไฟเลี้ยง 12V เข้าตัวอ่าน<br>
+                  <strong>วิธีแก้:</strong> ตรวจสอบว่าบิดกุญแจ ON หรือยัง หรือเช็กฟิวส์ Backup / Clock 7.5A ของรถว่าขาดหรือไม่ ตรวจเช็กสายแปลงว่าขา Pin 16 สัมผัสกับขั้วบวกของรถแน่นหนาดีหรือไม่
+                </p>
+              </div>
+
+              <div>
+                <h4 style="font-size: 0.82rem; color: var(--color-danger); margin-bottom: 3px;">2. มือถือค้นหาบลูทูธตัวอ่านไม่เจอ</h4>
+                <p style="font-size: 0.75rem; color: var(--color-text-muted); line-height: 1.5;">
+                  <strong>วิธีแก้:</strong> บน Android 11 ขึ้นไป ต้องเปิดใช้งาน Location (GPS) คู่กับ Bluetooth เสมอ เพื่ออนุญาตให้สแกนหาอุปกรณ์รอบตัวได้ และลองปิด-เปิด Bluetooth ในมือถือใหม่อีกครั้ง
+                </p>
+              </div>
+
+              <div>
+                <h4 style="font-size: 0.82rem; color: var(--color-danger); margin-bottom: 3px;">3. เชื่อมต่อบลูทูธได้แล้ว แต่รอบเครื่องค้างที่ 0 RPM</h4>
+                <p style="font-size: 0.75rem; color: var(--color-text-muted); line-height: 1.5;">
+                  <strong>สาเหตุ:</strong> เลือกรุ่นรถหรือโปรโตคอลไม่ตรงกับกล่อง ECU<br>
+                  <strong>วิธีแก้:</strong> เข้าหน้า "ตั้งค่า" ในแอป หากเป็นรถรุ่นปี 2021+ ให้เลือก <code>Honda CAN Euro5</code> แต่หากเป็นรุ่นปีเก่ากว่านั้น ให้เลือก <code>Honda KWP 4-Pin</code>
+                </p>
+              </div>
+
+              <div>
+                <h4 style="font-size: 0.82rem; color: var(--color-danger); margin-bottom: 3px;">4. กดปุ่มลบไฟโค้ดไม่ได้ มีข้อความเตือน</h4>
+                <p style="font-size: 0.75rem; color: var(--color-text-muted); line-height: 1.5;">
+                  <strong>สาเหตุ:</strong> เครื่องยนต์กำลังหมุนอยู่<br>
+                  <strong>วิธีแก้:</strong> ระบบมีระบบป้องกัน Safety Guard ห้ามลบโค้ดขณะรถติดเครื่องอยู่ ให้ดับเครื่องยนต์ เปิดเฉพาะสวิตช์กุญแจ ON แล้วกดลบโค้ดใหม่อีกครั้ง
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- SCREEN S05: SETTINGS & VEHICLE PROFILE -->
+      <section id="screen-settings" class="screen-view">
+        <h2 class="screen-title">ตั้งค่าโปรไฟล์รถ</h2>
+        
+        <div class="card settings-card">
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-title">รุ่นรถมอเตอร์ไซค์ที่ใช้งาน</span>
+              <span class="setting-desc">ปรับโปรโตคอลการอ่านค่าให้ตรงกับกล่อง ECU</span>
+            </div>
+            <select id="selectBikeProfile" class="custom-select">
+              <option value="honda_kwp">Honda Scoopy-i / Wave 110i/125i (KWP 4-Pin)</option>
+              <option value="honda_can">Honda Scoopy-i (รุ่นใหม่) / PCX 160 / Lead / Giorno (CAN Euro5)</option>
+              <option value="yamaha_can">Yamaha XMAX 300 / Aerox / NMAX</option>
+              <option value="universal">Universal OBD2 / ISO-9141</option>
+            </select>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-title">แจ้งเตือนอุณหภูมิความร้อนสูง</span>
+              <span class="setting-desc">เตือนเมื่อความร้อนหม้อน้ำเกินค่าที่กำหนด</span>
+            </div>
+            <div class="num-control">
+              <input type="number" id="settingMaxTemp" min="60" max="130" value="105" class="input-num">
+              <span class="unit-tag">°C</span>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-title">ไฟชิฟต์ไลท์รอบตัด (Redline)</span>
+              <span class="setting-desc">ตั้งค่ารอบสูงสุดก่อนแจ้งเตือนเปลี่ยนเกียร์</span>
+            </div>
+            <div class="num-control">
+              <input type="number" id="settingRedline" min="4000" max="16000" value="9500" step="500" class="input-num">
+              <span class="unit-tag">RPM</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card info-card">
+          <h3 style="font-size: 0.85rem; font-weight: 700; color: #fff; margin-bottom: 4px;">เกี่ยวกับ MotoGauge</h3>
+          <p>เวอร์ชัน 1.0.0 (Clean-room Replica Architecture)</p>
+          <p>มาตรฐาน OBD2 SAE J1979 & Diagnostic Support</p>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- SCREEN S01: BLE CONNECTION MODAL -->
+    <div id="modalConnect" class="modal-overlay hidden">
+      <div class="modal-sheet">
+        <div class="modal-drag-bar"></div>
+        <div class="modal-header">
+          <h3>เชื่อมต่อบลูทูธ OBD2</h3>
+          <button id="btnCloseModal" class="btn-close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p class="modal-tip">เสียบหัวอ่าน OBD2 เข้ากับปลั๊กใต้เบาะรถ แล้วบิดกุญแจ ON</p>
+          
+          <div class="scan-action-wrap">
+            <button id="btnTriggerScan" class="btn-primary full-width">
+              <svg class="btn-svg" viewBox="0 0 24 24">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              ค้นหาอุปกรณ์บลูทูธ
+            </button>
+          </div>
+
+          <div class="device-list" id="deviceList">
+            <!-- Dynamically populated by app.js / obdService -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Navigation Bar (5 Items - Zero Emojis) -->
+    <nav class="bottom-nav">
+      <button class="nav-item active" data-target="dashboard" aria-label="หน้าปัดไมล์">
+        <svg class="nav-svg" viewBox="0 0 24 24">
+          <path d="M12 14v-4"></path>
+          <path d="M3.34 17a10 10 0 1 1 17.32 0"></path>
+        </svg>
+        <span class="nav-label">หน้าปัดไมล์</span>
+      </button>
+
+      <button class="nav-item" data-target="diagnostics" aria-label="สแกนโค้ด">
+        <svg class="nav-svg" viewBox="0 0 24 24">
+          <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
+        </svg>
+        <span class="nav-label">สแกนโค้ด</span>
+        <span class="badge-dot" id="navMilBadge"></span>
+      </button>
+
+      <button class="nav-item" data-target="calculator" aria-label="คำนวณซีซี">
+        <svg class="nav-svg" viewBox="0 0 24 24">
+          <rect x="4" y="2" width="16" height="20" rx="2"></rect>
+          <line x1="8" y1="6" x2="16" y2="6"></line>
+          <line x1="16" y1="14" x2="16" y2="18"></line>
+          <path d="M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M8 18h.01M12 18h.01"></path>
+        </svg>
+        <span class="nav-label">คำนวณซีซี</span>
+      </button>
+
+      <button class="nav-item" data-target="guide" aria-label="คู่มือใช้งาน">
+        <svg class="nav-svg" viewBox="0 0 24 24">
+          <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+          <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+        </svg>
+        <span class="nav-label">คู่มือใช้งาน</span>
+      </button>
+
+      <button class="nav-item" data-target="settings" aria-label="ตั้งค่า">
+        <svg class="nav-svg" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+        <span class="nav-label">ตั้งค่า</span>
+      </button>
+    </nav>
+  </div>
+
+  <script src="dtc-database.js"></script>
+  <script src="obd-service.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

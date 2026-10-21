@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">MotoGauge</string>
+    <string name="title_activity_main">MotoGauge</string>
+    <string name="package_name">com.motogauge.app</string>
+    <string name="custom_url_scheme">com.motogauge.app</string>
+</resources>
